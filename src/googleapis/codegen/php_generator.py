@@ -30,17 +30,19 @@ __author__ = 'chirags@google.com (Chirag Shah)'
 
 import collections
 import json
+import sys
+import operator
 
 from googleapis.codegen import api
 from googleapis.codegen import api_library_generator
 from googleapis.codegen import data_types
 from googleapis.codegen import language_model
 from googleapis.codegen import utilities
+from googleapis.codegen.schema import Schema
 
 
 class PHPGenerator(api_library_generator.ApiLibraryGenerator):
   """The PHP code generator."""
-
   def __init__(self, discovery, options=None):
     """Create a new PHPGenerator.
 
@@ -122,7 +124,36 @@ class PHPGenerator(api_library_generator.ApiLibraryGenerator):
 
     if isinstance(prop.data_type, data_types.MapDataType):
       prop.SetTemplateValue('dataType', 'map')
+
+    if not prop.member_name_is_json_name:
+      schema.SetTemplateValue('has_gapi', True)
+
     self._SetTypeHint(prop)
+
+  def _GenerateLibrarySource(self, api, source_package_writer):
+    """Default operations to generate the package.
+
+    Do all the default operations for generating a package.
+    1. Walk the template tree to generate the source.
+    2. Add in per-language additions to the source
+    3. Optionally copy in dependencies
+    4. (Side effect) Closes the source_package_writer.
+
+    Args:
+      api: (Api) The Api instance we are writing a libary for.
+      source_package_writer: (LibraryPackage) source output package.
+    """
+    list_replacements = {
+        '___models_': ['model', api.ModelClasses()],
+        '___resources_': ['resource', api.ResourceClasses()],
+        '___topLevelModels_': ['model', api.TopLevelModelClasses()],
+        }
+    self.WalkTemplateTree('templates', self._path_replacements,
+                          list_replacements,
+                          self._top_level_defines, source_package_writer)
+    # Call back to the language specific generator to give it a chance to emit
+    # special case elements.
+    self.GenerateExtraSourceOutput(source_package_writer)
 
   def _ToMethodName(self, method, resource):
     """Convert a wire format name into a suitable PHP variable name."""
@@ -152,7 +183,7 @@ class PhpLanguageModel(language_model.LanguageModel):
   language = 'php'
 
   _SCHEMA_TYPE_TO_PHP_TYPE = {
-      'any': 'object',
+      'any': 'array',
       'boolean': 'bool',
       'integer': 'int',
       'long': 'string',  # PHP doesn't support long integers.
@@ -181,13 +212,24 @@ class PhpLanguageModel(language_model.LanguageModel):
       ))
 
   PHP_TYPES = frozenset((
-      'bool', 'boolean', 'int', 'integer', 'file', 'float', 'double', 'string',
+      'bool', 'boolean', 'int', 'integer', 'float', 'double', 'string',
       'array', 'object',
       'null', 'resource',
       ))
 
+  PHP_NEW_KEYWORDS = frozenset((
+      'parent', 'empty'
+      ))
+
+  PHP_LEGACY_TYPES = frozenset((
+      'file',
+      ))
+
   # We can not create classes which match a PHP keyword or built in object type.
-  RESERVED_CLASS_NAMES = PHP_KEYWORDS | PHP_TYPES
+  if '--language_variant=1.2.0' in sys.argv:
+    RESERVED_CLASS_NAMES = PHP_KEYWORDS | PHP_TYPES | PHP_NEW_KEYWORDS | PHP_LEGACY_TYPES
+  else:
+    RESERVED_CLASS_NAMES = PHP_KEYWORDS | PHP_TYPES | PHP_LEGACY_TYPES
 
   array_of_policy = language_model.NamingPolicy(format_string='{name}')
   map_of_policy = language_model.NamingPolicy(format_string='{name}')
@@ -242,6 +284,22 @@ class PhpLanguageModel(language_model.LanguageModel):
 class PHPApi(api.Api):
   """An Api with PHP annotations."""
 
+  def __init__(self, discovery_doc, language=None):
+      super(PHPApi, self).__init__(discovery_doc, language)
+      self.SetTemplateValue('copyright', 'Copyright 2016 Google Inc.\n')
+      # Standardizes version namespaces
+      #  - prefix numeric versions with "v"
+      #  - add ".0" to all single-digit versions
+      #  - replace dots and dashes with underscore
+      version = self.values['version']
+      if len(version.replace('v', '')) == 1:
+        version = version + '.0'
+      if version[0].isdigit():
+        version = 'v'+version
+      version = version.replace('.', '_').replace('-', '_')
+      self.values['versionName'] = version
+      self.SetTemplateValue('versionName', version)
+
   # pylint: disable=unused-argument
   # The parameter element_type is deliberately unused since PHP doesn't
   # support nested classes.
@@ -262,6 +320,36 @@ class PHPApi(api.Api):
       return utilities.CamelCase(self.values['name']) + utilities.CamelCase(s)
     return utilities.CamelCase(s)
 
+  def ModelClasses(self):
+    """Return all the model classes."""
+    ret = set(
+        s for s in self._schemas.itervalues()
+        if isinstance(s, Schema))
+    return sorted(ret, key=operator.attrgetter('class_name'))
+
+  def ResourceClasses(self, resources=None):
+    """Return all the resource classes."""
+    if resources == None:
+      resources = self.values['resources'];
+
+    all_resources = sorted(resources, key=lambda resource: resource.values['className'])
+
+    for resource in resources:
+      all_resources.extend(self.ResourceClasses(resource.values['resources']))
+
+    return all_resources
+
+  def _BuildResourceDefinitions(self):
+    """Loop over the resources in the discovery doc and build definitions."""
+    self._resources = []
+    def_dict = self.values.get('resources') or {}
+    for name in sorted(def_dict):
+      method_dict = def_dict[name].get('methods', {})
+      for n in def_dict[name].get('methods', {}):
+        if isinstance(method_dict[n].get('parameters'), list):
+          def_dict[name]['methods'][n]['parameters'] = {}
+      resource = api.Resource(self, name, def_dict[name], parent=self)
+      self._resources.append(resource)
 
 # Properties that should be stripped when serializing parts of the
 # discovery document.
