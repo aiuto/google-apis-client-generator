@@ -270,7 +270,8 @@ class CppGenerator(api_library_generator.ApiLibraryGenerator):
     if response_type != the_api.void_type:
       request_pager_h = '"googleapis/client/service/service_request_pager.h"'
       self._HandleImports(method.values['responseType'], import_manager)
-      if method.values.get('isPageable'):
+      if (method.values.get('isPageable') and
+          method.values['isPagingStyleStandard']):
         import_manager.AddImport(request_pager_h)
 
     method.SetTemplateValue(
@@ -525,6 +526,8 @@ class CppLanguageModel(language_model.LanguageModel):
                                         ImportDefinition(['<string>'])),
         ('string', 'google-duration'): ('string',
                                         ImportDefinition(['<string>'])),
+        ('string', 'google-fieldmask'): ('string',
+                                         ImportDefinition(['<string>'])),
         ('string', 'int64'): ('int64', ImportDefinition([integral_type_h])),
         ('string', 'uint64'): ('uint64', ImportDefinition([integral_type_h])),
         }
