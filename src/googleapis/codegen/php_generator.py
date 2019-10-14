@@ -176,6 +176,7 @@ class PHPGenerator(api_library_generator.ApiLibraryGenerator):
     """Strip primitive types since PHP doesn't support primitive type hints."""
     code_type = prop.code_type
     if code_type and code_type.lower() in PhpLanguageModel.PHP_TYPES:
+      prop.values['varAnnotation'] = code_type.lower()
       prop.values['typeHint'] = ''
       prop.values['typeHintOld'] = ''
     else:
