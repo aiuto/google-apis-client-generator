@@ -46,7 +46,7 @@ class {{ api.ownerName }}_Service_{{ api.className }}_{{ model.className }} {% i
 {% endfilter %}{% for property in model.properties %}
 {% filter noblanklines %}
   /**
-   * @param {% if property.typeHint %}{{ property.typeHint }}{% else %}{{ property.varAnnotation }}{% endif %}{% if property.type == "array" or property.dataType == "map" %}[]{% endif %}
+   * @param {% if property.typeHint %}{{ property.typeHint }}{% else %}{{ property.varAnnotation }}{% endif %}{% if property.type == "array" or property.dataType == "map" %}[]{% endif %} ${{ property.memberName }}
    */
   {% if property.type == "array" or property.dataType == "map" %}
   public function {{ property.setterName }}(array ${{ property.memberName }})
