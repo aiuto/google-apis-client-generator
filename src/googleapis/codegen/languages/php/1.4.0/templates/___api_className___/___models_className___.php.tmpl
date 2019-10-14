@@ -3,6 +3,13 @@
 
 class {{ api.ownerName }}_Service_{{ api.className }}_{{ model.className }} {% if model.superClass %}extends {{ api.ownerName }}_Service_{{ api.className }}_{{ model.superClass }}{% else %}{% if model.dataType == "array" %}extends Google_Collection{% else %}extends Google_Model{% endif %}{% endif %}
 {{% if model.properties %}
+{% for property in model.properties %}
+{% if property.enum %}
+{% for enum in property.enum %}
+  const {{ property.memberName|upper }}_{{ enum.constName|upper }} = "{{ enum.value }}";
+{% endfor %}
+{% endif %}
+{% endfor %}
 {% filter noblanklines %}
 {% if not model.is_variant_base and model.collectionKey %}
   protected $collection_key = '{{ model.collectionKey }}';
