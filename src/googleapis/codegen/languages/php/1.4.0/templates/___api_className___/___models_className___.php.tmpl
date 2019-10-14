@@ -30,7 +30,7 @@ class {{ api.ownerName }}_Service_{{ api.className }}_{{ model.className }} {% i
   {% endif %}
  {% else %}
   /**
-   * @var {{ property.varAnnotation }}
+   * @var {{ property.varAnnotation }}{% if property.type == "array" or property.dataType == "map" %}[]{% endif %}
    */
   public ${{ property.memberName }};
  {% endif %}
@@ -46,7 +46,7 @@ class {{ api.ownerName }}_Service_{{ api.className }}_{{ model.className }} {% i
 {% endfilter %}{% for property in model.properties %}
 {% filter noblanklines %}
   /**
-   * @param {% if property.typeHint %}{{ property.typeHint }}{% else %}{{ property.varAnnotation }}{% endif %}
+   * @param {% if property.typeHint %}{{ property.typeHint }}{% else %}{{ property.varAnnotation }}{% endif %}{% if property.type == "array" or property.dataType == "map" %}[]{% endif %}
    */
   {% if property.type == "array" or property.dataType == "map" %}
   public function {{ property.setterName }}(array ${{ property.memberName }})
@@ -60,7 +60,7 @@ class {{ api.ownerName }}_Service_{{ api.className }}_{{ model.className }} {% i
   }
 
   /**
-   * @return {% if property.typeHint %}{{ property.typeHint }}{% else %}{{ property.varAnnotation }}{% endif %}
+   * @return {% if property.typeHint %}{{ property.typeHint }}{% else %}{{ property.varAnnotation }}{% endif %}{% if property.type == "array" or property.dataType == "map" %}[]{% endif %}
    */
   public function {{ property.getterName }}()
   {
